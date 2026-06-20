@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NiceTextEditor for iPad and iPhone — Design Analysis</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f4ee;
+      --panel: #fffaf2;
+      --ink: #1f2933;
+      --muted: #64707d;
+      --rule: #dccfbd;
+      --accent: #8a4f14;
+      --accent-2: #1f6f58;
+      --warn: #8a3a14;
+      --bad: #8a1f1f;
+      --good: #236b33;
+      --code: #f0e6d7;
+      --shadow: rgba(40, 30, 20, 0.10);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15120f;
+        --panel: #201b16;
+        --ink: #eee8dd;
+        --muted: #b3a797;
+        --rule: #3a3027;
+        --accent: #f0b35e;
+        --accent-2: #76d7bd;
+        --warn: #ffb277;
+        --bad: #ff8c8c;
+        --good: #9ce09c;
+        --code: #2a241e;
+        --shadow: rgba(0, 0, 0, 0.35);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      line-height: 1.55;
+      background: radial-gradient(circle at top left, rgba(138,79,20,.16), transparent 35%), var(--bg);
+      color: var(--ink);
+    }
+    header {
+      padding: 4rem max(1.5rem, calc((100vw - 1120px) / 2)) 2.5rem;
+      border-bottom: 1px solid var(--rule);
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+    }
+    h1, h2, h3 { line-height: 1.18; }
+    h1 { font-size: clamp(2.1rem, 5vw, 4.2rem); margin: 0 0 1rem; letter-spacing: -0.04em; }
+    h2 { font-size: 1.7rem; margin: 0 0 1rem; }
+    h3 { font-size: 1.15rem; margin-top: 1.4rem; }
+    p { margin: .75rem 0; }
+    a { color: var(--accent-2); }
+    code, pre { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
+    code { background: var(--code); padding: .1rem .28rem; border-radius: .25rem; }
+    pre { background: var(--code); padding: 1rem; border-radius: .75rem; overflow-x: auto; border: 1px solid var(--rule); }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95rem; }
+    th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--rule); padding: .65rem .55rem; }
+    th { color: var(--muted); font-weight: 700; }
+    ul, ol { padding-left: 1.35rem; }
+    li { margin: .35rem 0; }
+    .lede { font-size: 1.25rem; max-width: 860px; color: var(--muted); }
+    .meta { color: var(--muted); font-size: .95rem; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 1.15rem;
+      padding: 1.4rem;
+      margin: 1.2rem 0;
+      box-shadow: 0 12px 32px var(--shadow);
+    }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .callout { border-left: .35rem solid var(--accent); padding: .75rem 1rem; background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: .55rem; }
+    .good { color: var(--good); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    .bad { color: var(--bad); font-weight: 700; }
+    .pill { display: inline-block; border: 1px solid var(--rule); border-radius: 999px; padding: .15rem .55rem; margin: .12rem; color: var(--muted); font-size: .85rem; }
+    .toc a { text-decoration: none; }
+    .small { font-size: .9rem; color: var(--muted); }
+    .verdict { font-size: 1.05rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="meta">Design analysis generated 2026-06-19 from repository inspection of <code>perdalum/nicetexteditor</code></p>
+    <h1>NiceTextEditor for iPad and iPhone</h1>
+    <p class="lede">A practical analysis of how to build a similar plain-text editor for iPadOS and iOS using standard Apple frameworks, preserving the good native editing ideas while intentionally dropping the MPW-like worksheet features and Go To Line.</p>
+    <p>
+      <span class="pill">SwiftUI</span>
+      <span class="pill">UIKit</span>
+      <span class="pill">TextKit 2</span>
+      <span class="pill">DocumentGroup</span>
+      <span class="pill">FileDocument</span>
+      <span class="pill">Files / iCloud Drive</span>
+      <span class="pill">UITextView</span>
+    </p>
+  </header>
+
+  <main>
+    <section class="panel toc">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#executive-summary">Executive summary</a></li>
+        <li><a href="#repo-findings">What the current macOS app does</a></li>
+        <li><a href="#platform-model">Recommended iPadOS/iOS platform model</a></li>
+        <li><a href="#feature-mapping">Feature-by-feature mapping</a></li>
+        <li><a href="#hard-or-unsuitable">Features that are unsuitable, hard, or not worth porting</a></li>
+        <li><a href="#architecture">Recommended architecture</a></li>
+        <li><a href="#implementation-plan">Suggested implementation plan</a></li>
+        <li><a href="#risks">Risks and experiments</a></li>
+        <li><a href="#sources">Apple API references</a></li>
+        <li><a href="#conclusions">Conclusions and recommendations</a></li>
+      </ol>
+    </section>
+
+    <section id="executive-summary" class="panel">
+      <h2>1. Executive summary</h2>
+      <p class="verdict"><strong>Recommendation:</strong> build the iPad/iPhone app as a document-based SwiftUI app, but use a wrapped UIKit <code>UITextView</code> for the editing surface. This gives the most native result with the least custom editor code.</p>
+      <div class="grid">
+        <div>
+          <h3 class="good">Keep</h3>
+          <ul>
+            <li>Plain-text document model.</li>
+            <li>Files/iCloud-based opening and saving.</li>
+            <li>Native text selection, undo/redo, spelling, keyboard input, accessibility.</li>
+            <li>Find/search using Apple’s standard find UI.</li>
+            <li>Text size and simple appearance controls.</li>
+            <li>Optional visual-only <code>.VB</code>/<code>.VE</code> and <code>.QB</code>/<code>.QE</code> markup.</li>
+            <li>Optional iPad-first line numbers if they are kept simple.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="bad">Do not port</h3>
+          <ul>
+            <li>MPW/BBEdit-like UNIX worksheet.</li>
+            <li>Persistent per-document <code>/bin/zsh</code> process.</li>
+            <li>Pipeline filtering of selected text.</li>
+            <li><code>WorksheetStartup.zsh</code> and shell shortcut settings.</li>
+            <li>Go To Line, as requested.</li>
+            <li>macOS-specific menus, Font panel, AppKit ruler view, AppKit alerts.</li>
+          </ul>
+        </div>
+      </div>
+      <p>The best iOS version is not a mechanical port. It should be a smaller native mobile document editor that borrows the current app’s philosophy: ordinary files, no proprietary state, a comfortable editor surface, and a few tasteful visual conveniences.</p>
+    </section>
+
+    <section id="repo-findings" class="panel">
+      <h2>2. What the current macOS app does</h2>
+      <p>The repository is a compact macOS SwiftUI/AppKit application. Important source files inspected:</p>
+      <table>
+        <thead><tr><th>File</th><th>Observed role</th><th>Portability</th></tr></thead>
+        <tbody>
+          <tr><td><code>NiceTextEditorApp.swift</code></td><td>SwiftUI <code>DocumentGroup</code>, macOS commands, Settings scene, worksheet menu.</td><td>DocumentGroup concept ports well; commands/settings need iOS redesign.</td></tr>
+          <tr><td><code>PlainTextDocument.swift</code></td><td><code>FileDocument</code>; reads UTF-8, UTF-16, MacRoman; writes UTF-8.</td><td>Highly portable with minor UTType adjustments.</td></tr>
+          <tr><td><code>ContentView.swift</code></td><td>Main document view; status bar; toolbar controls for colors, zoom, tab width, line numbers, full-screen width; owns worksheet shell.</td><td>Structure ports; worksheet pieces removed; toolbar redesigned for compact/touch UI.</td></tr>
+          <tr><td><code>MarkupTextEditor.swift</code></td><td><code>NSViewRepresentable</code> wrapping custom <code>NSTextView</code>; find, text assistance, line navigation, custom shortcuts, markup styling, virtual bottom space.</td><td>Replace with <code>UIViewRepresentable</code> wrapping <code>UITextView</code>.</td></tr>
+          <tr><td><code>LineNumberRulerView.swift</code></td><td>Custom <code>NSRulerView</code> drawing logical line numbers aligned to visible text fragments.</td><td>No direct UIKit equivalent; reimplement only if desired.</td></tr>
+          <tr><td><code>EditorColors.swift</code></td><td>Dynamic AppKit color palettes for background and foreground.</td><td>Easy to translate to <code>UIColor</code>/<code>Color</code>.</td></tr>
+          <tr><td><code>SettingsView.swift</code></td><td>macOS Font panel and worksheet settings/startup-file management.</td><td>Mostly not portable; simplify to small in-app settings.</td></tr>
+          <tr><td><code>WorksheetShell.swift</code></td><td>Persistent <code>/bin/zsh</code>, pipes, startup file, pipeline execution.</td><td>Do not port.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Core features found in the macOS app</h3>
+      <ul>
+        <li>Plain-text open/save with standard document behavior.</li>
+        <li>Proportional system font by default, configurable on macOS via Font panel.</li>
+        <li>Per-document text size, tab width, foreground/background colors.</li>
+        <li>Line-number gutter.</li>
+        <li>Standard text assistance: spelling, grammar, correction, replacements, smart punctuation, link/data detection.</li>
+        <li>Standard find commands.</li>
+        <li>Go To Line with aliases and clamping.</li>
+        <li>Extra bottom scroll space for comfortable editing near the end of the file.</li>
+        <li>Visual-only markup: <code>.VB</code>/<code>.VE</code> blocks displayed in SF Mono; <code>.QB</code>/<code>.QE</code> blocks displayed italic.</li>
+        <li>MPW/BBEdit-style worksheet: selected commands execute in a background shell, and selected text can be filtered through a prompted pipeline.</li>
+      </ul>
+    </section>
+
+    <section id="platform-model" class="panel">
+      <h2>3. Recommended iPadOS/iOS platform model</h2>
+      <div class="callout">
+        <strong>Use standard Apple kits:</strong> SwiftUI for app/document chrome, UIKit for the editable text view, Foundation/UniformTypeIdentifiers for file representation, and system document integration for Files/iCloud.
+      </div>
+      <h3>Document handling</h3>
+      <p>Use SwiftUI <code>DocumentGroup</code> with a mobile version of <code>PlainTextDocument</code> conforming to <code>FileDocument</code>. On iPadOS/iOS this gives the standard document browser experience and integrates naturally with Files, iCloud Drive, and other file providers.</p>
+      <p>Recommended document posture:</p>
+      <ul>
+        <li>Register as an editor for <code>public.plain-text</code>, <code>public.text</code>, and probably <code>public.utf8-plain-text</code>.</li>
+        <li>The macOS code also accepts <code>.sourceCode</code> and <code>.data</code> at the <code>FileDocument</code> level. For mobile, preserve <code>.sourceCode</code> if you want scripts/config files to appear naturally in the document browser, but be cautious with broad <code>.data</code>: it can expose arbitrary binary files that will usually fail decoding or produce a poor user experience.</li>
+        <li>Set <code>LSSupportsOpeningDocumentsInPlace</code> so the app edits original files from Files providers when allowed.</li>
+        <li>Set <code>UISupportsDocumentBrowser</code> if using a UIKit document-browser-based shell; SwiftUI <code>DocumentGroup</code> handles much of this for a SwiftUI document app.</li>
+        <li>Read UTF-8 first; optionally fall back to UTF-16 and MacRoman as the macOS app does.</li>
+        <li>Write UTF-8. Keep files plain.</li>
+      </ul>
+
+      <h3>Text editor surface</h3>
+      <p>Use <code>UITextView</code> wrapped in <code>UIViewRepresentable</code>. SwiftUI’s built-in <code>TextEditor</code> is convenient, but it is too limited for line numbers, find integration control, text-container insets, attributed visual markup, tab width, keyboard commands, and robust editor behavior.</p>
+      <p><code>UITextView</code> provides:</p>
+      <ul>
+        <li>Native selection, insertion point, edit menu, drag/drop, copy/paste.</li>
+        <li>Undo/redo integration.</li>
+        <li>TextKit 2-backed layout on modern systems.</li>
+        <li>Spelling, autocorrection, smart punctuation and keyboard behavior.</li>
+        <li>Accessibility, dictation, hardware keyboard interaction, pointer support.</li>
+        <li><code>UIFindInteraction</code> support for find/replace.</li>
+      </ul>
+
+      <h3>iPad and iPhone adaptation</h3>
+      <p>The app should be one codebase with size-class-aware UI:</p>
+      <ul>
+        <li><strong>iPad:</strong> richer toolbar, optional line numbers, multiwindow support, keyboard shortcuts, Stage Manager/split-view safe layout.</li>
+        <li><strong>iPhone:</strong> minimal toolbar, document title + count, find/share/appearance controls, line numbers off or hidden.</li>
+      </ul>
+    </section>
+
+    <section id="feature-mapping" class="panel">
+      <h2>4. Feature-by-feature mapping</h2>
+      <table>
+        <thead><tr><th>macOS feature</th><th>iPadOS/iOS recommendation</th><th>Frameworks/APIs</th><th>Difficulty</th></tr></thead>
+        <tbody>
+          <tr><td>Plain-text documents</td><td>Preserve directly.</td><td>SwiftUI <code>DocumentGroup</code>, <code>FileDocument</code>, UniformTypeIdentifiers</td><td class="good">Low</td></tr>
+          <tr><td>Open/save via native document system</td><td>Preserve through Files/iCloud document browser.</td><td>DocumentGroup or <code>UIDocumentBrowserViewController</code>; <code>NSFileCoordinator</code> if going lower-level</td><td class="good">Low–Medium</td></tr>
+          <tr><td><code>NSTextView</code> editor</td><td>Replace with <code>UITextView</code> inside SwiftUI.</td><td>UIKit <code>UITextView</code>, SwiftUI <code>UIViewRepresentable</code>, TextKit 2</td><td class="good">Medium</td></tr>
+          <tr><td>Find</td><td>Preserve using system find UI.</td><td><code>UIFindInteraction</code>, <code>UITextView.isFindInteractionEnabled</code></td><td class="good">Low</td></tr>
+          <tr><td>Go To Line</td><td>Exclude, per requirement.</td><td>Would require custom line index and selection scrolling.</td><td class="warn">Not included</td></tr>
+          <tr><td>Line numbers</td><td>Optional, iPad-first; defer until core editor is stable.</td><td>Custom gutter view synchronized with <code>UITextView</code> scrolling; TextKit 2 viewport/layout info if needed</td><td class="warn">Medium–High</td></tr>
+          <tr><td>Visual <code>.VB</code>/<code>.VE</code> blocks</td><td>Preserve if performance is acceptable; keep saved text unchanged.</td><td><code>NSMutableAttributedString</code>, <code>UIFont.monospacedSystemFont</code>, paragraph styles</td><td>Medium</td></tr>
+          <tr><td>Visual <code>.QB</code>/<code>.QE</code> blocks</td><td>Preserve if performance is acceptable; italic display only.</td><td><code>UIFontDescriptor</code>, attributed text</td><td>Medium</td></tr>
+          <tr><td>Text size controls</td><td>Preserve as A−/A+/reset; global or per-document state.</td><td>SwiftUI toolbar/menu, <code>UIFont</code></td><td class="good">Low</td></tr>
+          <tr><td>Tab width</td><td>Preserve later; choices 2/4/8 probably enough.</td><td><code>NSMutableParagraphStyle.defaultTabInterval</code>, attributed text</td><td>Medium</td></tr>
+          <tr><td>Foreground/background palettes</td><td>Preserve as a smaller mobile theme set.</td><td><code>UIColor</code>, SwiftUI <code>Color</code>, dynamic colors</td><td class="good">Low</td></tr>
+          <tr><td>Full-screen text width</td><td>Simplify to readable margins on wide iPad layouts.</td><td>SwiftUI layout, <code>textContainerInset</code>, safe area</td><td class="good">Low–Medium</td></tr>
+          <tr><td>Status bar</td><td>Simplify to document name, character count, maybe line count.</td><td>SwiftUI</td><td class="good">Low</td></tr>
+          <tr><td>Extra bottom scroll space</td><td>Preserve with UIKit insets and keyboard-safe-area handling.</td><td><code>UITextView.contentInset</code>, <code>scrollIndicatorInsets</code>, keyboard notifications/safe areas</td><td>Medium</td></tr>
+          <tr><td>Spelling/substitutions</td><td>Mostly rely on iOS defaults; optionally expose a few toggles.</td><td><code>UITextAutocorrectionType</code>, <code>UITextSpellCheckingType</code>, smart quote/dash types</td><td class="good">Low</td></tr>
+          <tr><td>Share/print</td><td>Add as useful mobile-native commands.</td><td><code>UIActivityViewController</code>, <code>UIPrintInteractionController</code></td><td class="good">Low–Medium</td></tr>
+          <tr><td>MPW worksheet and pipelines</td><td>Exclude completely.</td><td>No suitable standard iOS equivalent for arbitrary local shell execution.</td><td class="bad">Unsuitable</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="hard-or-unsuitable" class="panel">
+      <h2>5. Features that are unsuitable, hard, or not worth porting</h2>
+      <h3 class="bad">MPW-like worksheet / shell execution</h3>
+      <p>The current macOS app’s worksheet is built around <code>Process</code>, <code>Pipe</code>, a persistent <code>/bin/zsh</code>, and a user-managed startup file. That is natural on macOS, but not a standard app pattern on iPadOS/iOS.</p>
+      <p>Reasons not to implement it:</p>
+      <ul>
+        <li>iPadOS/iOS apps are sandboxed and do not have the same general-purpose shell environment.</li>
+        <li>Arbitrary command execution is a security and policy risk.</li>
+        <li>It would require a non-standard interpreter, remote execution service, or a heavily constrained toy environment.</li>
+        <li>It would dominate the project’s complexity while not being required for a personal mobile text editor.</li>
+      </ul>
+      <p><strong>Conclusion:</strong> exclude it entirely. Keep visual markup if desired, but no execution.</p>
+
+      <h3 class="warn">Line numbers</h3>
+      <p>The macOS implementation uses <code>NSRulerView</code>, <code>NSTextView.layoutManager</code>, visible glyph ranges, and logical newline starts. UIKit has no drop-in <code>NSRulerView</code> equivalent. A mobile gutter must be custom and synchronized with scrolling, content insets, wrapping, dynamic type/font changes, and keyboard movement.</p>
+      <p><strong>Conclusion:</strong> possible, but not a first-version feature. If implemented, make it iPad-first, logical-line-only, and optional.</p>
+
+      <h3 class="warn">Live visual markup on large files</h3>
+      <p>The macOS app restyles the text storage after edits. The same idea is possible with <code>UITextView.attributedText</code>, but full-document rescans and full attributed-string replacement can be expensive and may disturb selection if done carelessly.</p>
+      <p><strong>Conclusion:</strong> implement with debouncing and test with realistic files. Disable or simplify for large documents.</p>
+
+      <h3 class="warn">Large-file editing</h3>
+      <p>The existing app’s model loads documents into a <code>String</code>. That is appropriate for normal notes, scripts, README files, and prose, but not for huge logs. A serious large-file editor would need streaming storage, viewport-based layout strategy, and much more testing.</p>
+      <p><strong>Conclusion:</strong> set a tested size policy. Warn or open read-only for large files rather than pretending this architecture is a log viewer.</p>
+
+      <h3>Go To Line</h3>
+      <p>You explicitly requested that the iPadOS/iOS version not include Go To Line. It is also a reasonable omission: system find is more valuable on mobile, and Go To Line adds UI and indexing complexity for little personal benefit.</p>
+    </section>
+
+    <section id="architecture" class="panel">
+      <h2>6. Recommended architecture</h2>
+      <h3>High-level module structure</h3>
+      <pre><code>NiceTextEditorMobile/
+  NiceTextEditorMobileApp.swift      // DocumentGroup app entry
+  PlainTextDocument.swift            // FileDocument text load/save
+  DocumentEditorView.swift           // SwiftUI document screen and toolbar
+  TextEditorView.swift               // UIViewRepresentable wrapping UITextView
+  TextStyler.swift                   // optional .VB/.QB visual-only styling
+  EditorTheme.swift                  // UIColor/Color palette
+  EditorSettings.swift               // UserDefaults-backed preferences
+  ShareAndPrint.swift                // UIActivityViewController / UIPrintInteractionController bridges
+  LineNumberGutter.swift             // optional, later, iPad-first
+</code></pre>
+
+      <h3>Core document type</h3>
+      <p>The existing <code>PlainTextDocument</code> can be adapted almost directly. Keep it value-type and simple first:</p>
+      <pre><code>struct PlainTextDocument: FileDocument {
+    static var readableContentTypes: [UTType] = [.plainText, .text, .utf8PlainText]
+    static var writableContentTypes: [UTType] = [.plainText, .utf8PlainText]
+
+    var text: String = ""
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        if let utf8 = String(data: data, encoding: .utf8) {
+            text = utf8
+        } else if let utf16 = String(data: data, encoding: .utf16) {
+            text = utf16
+        } else if let macRoman = String(data: data, encoding: .macOSRoman) {
+            text = macRoman
+        } else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
+    }
+}</code></pre>
+
+      <h3>Editor view strategy</h3>
+      <p>Create a <code>UIViewRepresentable</code> that owns/configures <code>UITextView</code>. The coordinator should bridge changes back to the SwiftUI document binding, preserve selection when applying programmatic changes, and expose methods for find, zoom, and optional styling.</p>
+      <pre><code>struct MobileTextView: UIViewRepresentable {
+    @Binding var text: String
+    var fontSize: CGFloat
+    var theme: EditorTheme
+    var showMarkup: Bool
+
+    func makeUIView(context: Context) -> UITextView {
+        let view = UITextView()
+        view.delegate = context.coordinator
+        view.isEditable = true
+        view.isSelectable = true
+        view.alwaysBounceVertical = true
+        view.keyboardDismissMode = .interactive
+        view.isFindInteractionEnabled = true
+        view.textContainerInset = UIEdgeInsets(top: 14, left: 14, bottom: 160, right: 14)
+        return view
+    }
+
+    func updateUIView(_ view: UITextView, context: Context) {
+        // Apply text, font, theme, insets, and optional attributed markup carefully.
+    }
+}</code></pre>
+
+      <h3>State model</h3>
+      <ul>
+        <li><strong>Document state:</strong> the text only.</li>
+        <li><strong>Per-scene/editor state:</strong> font size, theme, tab width, line-number visibility.</li>
+        <li><strong>Global user preferences:</strong> default font size/theme, smart-punctuation preference, default tab width.</li>
+        <li><strong>Not stored in file:</strong> colors, zoom, line numbers, UI state, markup rendering state.</li>
+      </ul>
+    </section>
+
+    <section id="implementation-plan" class="panel">
+      <h2>7. Suggested implementation plan</h2>
+      <h3>Version 0.1 — private usable editor</h3>
+      <ol>
+        <li>Create a new iOS/iPadOS SwiftUI document app target.</li>
+        <li>Port <code>PlainTextDocument</code> and Info.plist document type declarations.</li>
+        <li>Build <code>DocumentEditorView</code> with a <code>UITextView</code> wrapper.</li>
+        <li>Support open, edit, autosave/save, and new document flows through the system document UI.</li>
+        <li>Add text size controls and a small theme picker.</li>
+        <li>Add character count and document name.</li>
+        <li>Enable system find.</li>
+        <li>Add share sheet for the current file/text.</li>
+        <li>Test with hardware keyboard, software keyboard, iPad split view, Stage Manager, and iPhone portrait.</li>
+      </ol>
+
+      <h3>Version 0.2 — NiceTextEditor personality</h3>
+      <ol>
+        <li>Add visual-only <code>.VB</code>/<code>.VE</code> monospace blocks.</li>
+        <li>Add visual-only <code>.QB</code>/<code>.QE</code> italic quote blocks.</li>
+        <li>Add tab width rendering if it behaves well with attributed text.</li>
+        <li>Add print support.</li>
+        <li>Add keyboard shortcuts for find, zoom, share, and maybe appearance.</li>
+      </ol>
+
+      <h3>Version 0.3 — optional editor refinements</h3>
+      <ol>
+        <li>Prototype iPad-only line-number gutter.</li>
+        <li>Add large-file warnings and possibly read-only mode.</li>
+        <li>Improve multiwindow behavior on iPad.</li>
+        <li>Add a compact settings screen.</li>
+      </ol>
+    </section>
+
+    <section id="risks" class="panel">
+      <h2>8. Risks and experiments</h2>
+      <p>The analysis used repository inspection and Apple-framework research. Before committing to the final implementation, run these small experiments in Xcode on the target devices:</p>
+      <table>
+        <thead><tr><th>Experiment</th><th>Purpose</th><th>Success criterion</th></tr></thead>
+        <tbody>
+          <tr><td>DocumentGroup + FileDocument smoke test</td><td>Confirm Files/iCloud open/save behavior and document type registration.</td><td>Create, open, edit, close, reopen a .txt file from On My iPad and iCloud Drive.</td></tr>
+          <tr><td>UITextView wrapper test</td><td>Validate selection preservation, undo, typing latency, keyboard avoidance.</td><td>No selection jumps; undo works; software keyboard does not cover insertion point.</td></tr>
+          <tr><td>UIFindInteraction test</td><td>Confirm find UI and keyboard shortcuts on iPad hardware keyboard.</td><td>Command-F and next/previous matches work naturally.</td></tr>
+          <tr><td>Markup styling test</td><td>Measure cost of applying <code>.VB</code>/<code>.QB</code> attributed styles.</td><td>Acceptable typing latency on realistic personal files.</td></tr>
+          <tr><td>Line-number prototype</td><td>Determine whether custom gutter is worth it.</td><td>Scroll sync and wrapped lines behave acceptably without fragile private assumptions.</td></tr>
+          <tr><td>Large-file thresholds</td><td>Set honest warnings/read-only policy.</td><td>Known performance envelope for 1 MB, 5 MB, 20 MB, and 50 MB files.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Important risk notes</h3>
+      <ul>
+        <li><strong>TextKit versioning:</strong> avoid relying on old TextKit 1 glyph APIs unless there is a deliberate fallback strategy.</li>
+        <li><strong>Attributed text churn:</strong> replacing all attributed text on each keystroke can reset selection or hurt performance.</li>
+        <li><strong>File providers:</strong> Files documents may be remote or externally changed; standard document APIs help, but testing with iCloud Drive matters.</li>
+        <li><strong>Private use does not remove platform constraints:</strong> even for your own app, arbitrary shell execution is still a poor iOS fit.</li>
+      </ul>
+    </section>
+
+    <section id="sources" class="panel">
+      <h2>9. Apple API references</h2>
+      <p>These are the main Apple frameworks and APIs that should be consulted while implementing the design:</p>
+      <ul>
+        <li><a href="https://developer.apple.com/documentation/swiftui/documentgroup">SwiftUI <code>DocumentGroup</code></a> for document-based SwiftUI apps.</li>
+        <li><a href="https://developer.apple.com/documentation/swiftui/filedocument">SwiftUI <code>FileDocument</code></a> for serializing plain-text documents.</li>
+        <li><a href="https://developer.apple.com/documentation/uniformtypeidentifiers/uttype">UniformTypeIdentifiers <code>UTType</code></a> for document type declarations.</li>
+        <li><a href="https://developer.apple.com/document-based-apps/">Apple document-based app guidance</a> for Files/iCloud/open-in-place behavior.</li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uitextview"><code>UITextView</code></a> and <a href="https://developer.apple.com/documentation/uikit/textkit">TextKit</a> for the editing surface.</li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uifindinteraction"><code>UIFindInteraction</code></a> for system find and replace UI.</li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uikeycommand"><code>UIKeyCommand</code></a> for hardware keyboard shortcuts.</li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uiactivityviewcontroller"><code>UIActivityViewController</code></a> for sharing.</li>
+        <li><a href="https://developer.apple.com/documentation/uikit/uiprintinteractioncontroller"><code>UIPrintInteractionController</code></a> for AirPrint.</li>
+      </ul>
+    </section>
+
+    <section id="conclusions" class="panel">
+      <h2>10. Conclusions and recommendations</h2>
+      <ol>
+        <li><strong>Build a new iPadOS/iOS app, not a direct port.</strong> The existing repository is a good design reference, but much of its code is AppKit-specific.</li>
+        <li><strong>Use SwiftUI <code>DocumentGroup</code> and <code>FileDocument</code>.</strong> This preserves the current app’s plain-document model and gives native Files/iCloud behavior.</li>
+        <li><strong>Use UIKit <code>UITextView</code>, not a custom editor.</strong> This is the most reliable path to native editing, selection, undo, keyboard, accessibility, and find.</li>
+        <li><strong>Exclude the MPW worksheet and Go To Line.</strong> The worksheet is unsuitable for iPadOS/iOS; Go To Line is explicitly out of scope and not worth the mobile UI complexity.</li>
+        <li><strong>Preserve the quiet strengths:</strong> plain text, tasteful themes, zoom, tab-width control, visual-only markup, character count, comfortable bottom scrolling.</li>
+        <li><strong>Defer line numbers.</strong> They are possible, but they are a custom UIKit/TextKit feature and should not block the first usable version.</li>
+        <li><strong>Set realistic file-size expectations.</strong> An in-memory text editor is fine for normal personal documents, not huge logs.</li>
+        <li><strong>Keep the app boringly private.</strong> No analytics, no network layer, no third-party frameworks unless necessary, no arbitrary code execution.</li>
+      </ol>
+      <div class="callout">
+        <strong>Final recommendation:</strong> first build a small native document editor with <code>DocumentGroup</code> + <code>UITextView</code>. Once editing and Files behavior are solid, add NiceTextEditor’s personality through simple themes and visual-only markup. Consider line numbers only after that, and keep them iPad-first.
+      </div>
+    </section>
+  </main>
+</body>
+</html>
