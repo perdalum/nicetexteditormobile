@@ -4,6 +4,8 @@ Version 0.0.1 prototype of a native plain-text editor for iPad and iPhone, based
 
 This first version intentionally excludes the macOS app's MPW/worksheet shell features and Go To Line.
 
+![Plain text, no extras](light-screenshot.png)
+
 ## Features in 0.0.1
 
 - SwiftUI document-based iPadOS/iOS app.
